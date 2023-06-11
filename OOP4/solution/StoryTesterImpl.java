@@ -1,111 +1,98 @@
 package solution;
 
-import junit.framework.ComparisonFailure;
+import org.junit.ComparisonFailure;
 import provided.*;
 
 import java.lang.annotation.Annotation;
-import java.lang.reflect.Constructor;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.lang.reflect.*;
+import java.util.*;
 
 public class StoryTesterImpl implements StoryTester
 {
 
 
-    protected  void test(String story,Class<?> testClass,SearchFunction s)throws Exception
+    protected void test(String story, Class<?> testClass,Object curr,Object pre)throws Exception
     {
         if(story==null || testClass ==null)
         {
             throw new IllegalArgumentException();
         }
 
-        String[] lines = story.split(System.lineSeparator());
-        Object test = testClass.newInstance();//constructor default
+        String[] lines = story.split("\n");
+        Object test=curr;
 
         //exception realted
         int failsCounter = 0;
         String expected="";
         String got="";
         String failedTest="";
+
         Object backUp =null;
         int whenStreak =0;
-        for (int i =0; i<lines.length ;i++)
-        {
-            int firstSpace =lines[i].indexOf(" ");
-            int lastSpace =lines[i].lastIndexOf(" ");
+        for (int i =0; i < lines.length; i++) {
+            int firstSpace = lines[i].indexOf(" ");
+            int lastSpace = lines[i].lastIndexOf(" ");
 
-            String keyword= lines[i].substring(0,firstSpace);
-            String statement = lines[i].substring(firstSpace+1,lastSpace);
-            String argument =  lines[i].substring(lastSpace+1);
+            String keyword = lines[i].substring(0, firstSpace);
+            String statement = lines[i].substring(firstSpace + 1, lastSpace);
+            String argument = lines[i].substring(lastSpace + 1);
             boolean isNumeric = true;
-            try
-            {
+
+            try {
                 Integer.parseInt(argument);
-            }
-            catch(Exception e)
-            {
+            } catch (Exception e) {
                 isNumeric = false;
             }
 
             Method m;
-            switch(keyword)
-            {
+            switch (keyword) {
                 case "Given":
-                    whenStreak=0;
-                     m = s.Search(Given.class,statement,testClass);
-                    if(m == null)
+                    whenStreak = 0;
+                    m = searchInheritance(Given.class, statement, testClass);
+                    if (m == null)
                         throw new GivenNotFoundException();
+                    m.setAccessible(true);
                     //find given method and apply
-                    if(isNumeric)
+                    if (isNumeric)
                     {
-                        m.invoke(test,Integer.parseInt(argument));
+                        m.invoke(test, Integer.parseInt(argument));
                     }
                     else
                     {
-                        m.invoke(test,argument);
+                        m.invoke(test, argument);
                     }
                     break;
                 case "When":
-                    if (whenStreak == 0)
-                    {
-                        backUp = makeBackUp(test);
+                    if (whenStreak == 0) {
+                        backUp = makeBackUp(test,pre);
                     }
                     whenStreak++;
                     //find when method
-                    m = s.Search(When.class,statement,testClass);
-                    if(m == null)
+                    m = searchInheritance(When.class, statement, testClass);
+                    if (m == null)
                         throw new WhenNotFoundException();
-                    if(isNumeric)
-                    {
-                        m.invoke(test,Integer.parseInt(argument));
-                    }
-                    else
-                    {
-                        m.invoke(test,argument);
+                    m.setAccessible(true);
+                    if (isNumeric) {
+                        m.invoke(test, Integer.parseInt(argument));
+                    } else {
+                        m.invoke(test, argument);
                     }
                     break;
                 case "Then":
-                    whenStreak=0;
-                    m = s.Search(Then.class,statement,testClass);
-                    if(m == null)
+                    whenStreak = 0;
+                    m = searchInheritance(Then.class, statement, testClass);
+                    if (m == null)
                         throw new ThenNotFoundException();
-
-                    try{
-                        if(isNumeric)
-                        {
-                            m.invoke(test,Integer.parseInt(argument));
+                    m.setAccessible(true);
+                    try {
+                        if (isNumeric) {
+                            m.invoke(test, Integer.parseInt(argument));
+                        } else {
+                            m.invoke(test, argument);
                         }
-                        else
-                        {
-                            m.invoke(test,Integer.parseInt(argument));
-                        }                    }
-                    catch(ComparisonFailure fail)
-                    {
-                        if(failsCounter == 0) // if first to fail
+                    } catch (InvocationTargetException asser) {
+                        ComparisonFailure fail = (ComparisonFailure) asser.getCause();
+                        if (failsCounter == 0) // if first to fail
                         {
                             expected = fail.getExpected();
                             got = fail.getActual();
@@ -114,28 +101,50 @@ public class StoryTesterImpl implements StoryTester
                         failsCounter++;
                         test = backUp;
                     }
+
                     break;
             }
+        }
         if(failsCounter > 0)
             throw new StoryTestExceptionImpl(expected,got,failedTest,failsCounter);
-        }
 
     }
     @Override
     public void testOnInheritanceTree(String story, Class<?> testClass) throws Exception
     {
-        test(story,testClass,StoryTesterImpl::getMethodByInheritance);
-    }
+        if(story == null || testClass == null)
+            throw new IllegalArgumentException();
 
+        test(story,testClass,testClass.newInstance(),null);
+    }
 
 
     @Override
-    public void testOnNestedClasses(String story, Class<?> testClass) throws Exception
-    {
-        test(story,testClass,StoryTesterImpl::getMethodByNestedClass);
+    public void testOnNestedClasses(String story, Class<?> testClass) throws Exception {
+        if (story == null || testClass == null)
+            throw new IllegalArgumentException();
+
+        String firstRow = story.split("\n")[0];
+        String statement = firstRow.substring(firstRow.indexOf(" ") + 1, firstRow.lastIndexOf(" "));
+        List<Object> objectsToCreate = getClassByNestedClass(Given.class,statement,testClass,null);
+        if(objectsToCreate == null)
+            throw new GivenNotFoundException();
+
+
+        //find class to work on
+        test(story,objectsToCreate.get(0).getClass(), objectsToCreate.get(0),objectsToCreate.get(1));
     }
-    protected static Object makeBackUp(Object test) throws Exception {
-        Object backUpTest = (test.getClass()).newInstance();
+    protected static Object makeBackUp(Object test,Object pre) throws Exception
+    {
+        Object backUpTest;
+        if(pre == null)
+             backUpTest = (test.getClass()).newInstance();
+        else//if non-static nested
+        {
+            Constructor<?> ctor = (test.getClass()).getDeclaredConstructor(pre.getClass());
+            backUpTest = ctor.newInstance(pre);
+        }
+
         List<Field> fields = Arrays.stream(test.getClass().getFields()).toList();
         for(Field field : fields)
         {
@@ -167,7 +176,7 @@ public class StoryTesterImpl implements StoryTester
         return hm;
     }
 
-    protected static Method getMethodByInheritance(Class<? extends Annotation> requiredAnno , String statement, Class<?> testClass) throws Exception {
+    protected static Method searchInheritance(Class<? extends Annotation> requiredAnno , String statement, Class<?> testClass) throws Exception {
         Method[] methods = testClass.getDeclaredMethods();
         for (Method m : methods) {
             //check for annotation
@@ -177,30 +186,53 @@ public class StoryTesterImpl implements StoryTester
         if(testClass.getSuperclass() == null) {
             return null;
         }
-        return getMethodByInheritance(requiredAnno,statement, testClass.getSuperclass());
+        return searchInheritance(requiredAnno,statement, testClass.getSuperclass());
     }
 
-    protected static Method getMethodByNestedClass(Class<? extends Annotation> requiredAnno, String statement, Class<?> testClass) throws Exception {
-        Method[] methods = testClass.getDeclaredMethods();
-        for (Method m : methods) {
-            if(checkAnnotation(m,requiredAnno,statement)){
-                return m;
+    protected static List<Object> getClassByNestedClass(Class<? extends Annotation> requiredAnno, String statement, Class<?> testClass,Object pre) throws Exception {
+        {
+            Object curr;
+            if(pre ==null)
+                curr = testClass.newInstance();
+            else
+            {
+                Constructor<?> ctor = testClass.getConstructor(pre.getClass());
+                curr = ctor.newInstance(pre);
             }
+
+            Method[] methods = testClass.getDeclaredMethods();
+            for (Method m : methods)
+            {
+                if(checkAnnotation(m,requiredAnno,statement)){
+                    List list = new ArrayList();
+                    list.add(curr);
+                    list.add(pre);
+                    return list;
+                }
+            }
+            Class[] classes = testClass.getDeclaredClasses();
+            for (Class c : classes)
+            {
+                List l;
+                if(Modifier.isStatic(c.getModifiers()))//checks if static nested
+                     l = getClassByNestedClass(requiredAnno, statement, c,null);
+                else
+                    l = getClassByNestedClass(requiredAnno,statement,c,curr);
+                if(l != null)
+                    return l;
+            }
+            return null;
         }
-        Class[] classes = testClass.getDeclaredClasses();
-        for (Class c : classes) {
-            return getMethodByNestedClass(requiredAnno,statement, c);
-        }
-        return null;
     }
     protected static boolean checkAnnotation(Method m, Class<? extends Annotation> requiredAnno,String statement) throws Exception {
         Annotation methodAnno = m.getAnnotation(requiredAnno);
         if (methodAnno != null) {
-            Field f = methodAnno.getClass().getField("value");
+            Method f = methodAnno.getClass().getMethod("value");
             //parse value
-            String s = (String) f.get(methodAnno);
-            s.substring(0, s.lastIndexOf(" "));
-            if (f.get(methodAnno).equals(statement))
+
+            String s = (String) f.invoke(methodAnno);
+            s=s.substring(0, s.lastIndexOf(" "));
+            if (s.equals(statement))
                 return true;
         }
         return false;
