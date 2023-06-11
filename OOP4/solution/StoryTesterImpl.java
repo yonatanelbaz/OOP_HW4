@@ -90,4 +90,17 @@ public class StoryTesterImpl implements StoryTester
         return hm;
     }
 
+    public Method getMethod(String methodName, Class<?> testClass) {
+        Method[] methods = testClass.getDeclaredMethods();
+        for (Method m : methods) {
+            if (m.getName().equals(methodName)) {
+                return m;
+            }
+        }
+        if(testClass.getSuperclass() == null) {
+            return null;
+        }
+        return getMethod(methodName, testClass.getSuperclass());
+    }
+
 }
