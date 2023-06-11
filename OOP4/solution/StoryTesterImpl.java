@@ -90,7 +90,7 @@ public class StoryTesterImpl implements StoryTester
         return hm;
     }
 
-    public Method getMethod(String methodName, Class<?> testClass) {
+    public Method getMethodByInheritance(String methodName, Class<?> testClass) {
         Method[] methods = testClass.getDeclaredMethods();
         for (Method m : methods) {
             if (m.getName().equals(methodName)) {
@@ -100,7 +100,24 @@ public class StoryTesterImpl implements StoryTester
         if(testClass.getSuperclass() == null) {
             return null;
         }
-        return getMethod(methodName, testClass.getSuperclass());
+        return getMethodByInheritance(methodName, testClass.getSuperclass());
+    }
+
+    public Method getMethodByInnerClass(String methodName, Class<?> testClass) {
+        Method[] methods = testClass.getDeclaredMethods();
+        for (Method m : methods) {
+            if (m.getName().equals(methodName)) {
+                return m;
+            }
+        }
+        Class[] Classes = testClass.getDeclaredClasses();
+        if(Classes.length != 0) {
+            for (Class c : Classes) {
+                return getMethodByInnerClass(methodName, c);
+
+            }
+        }
+        return null;
     }
 
 }
