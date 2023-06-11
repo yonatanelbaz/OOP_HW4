@@ -19,7 +19,12 @@ public class StoryTesterImpl implements StoryTester
         }
         String[] lines = story.split(System.lineSeparator());
         Object test = testClass.newInstance();//constructor default
-        StoryTestException exception = null;
+
+        //exception realted
+        int failsCounter = 0;
+        String expected;
+        String got;
+        String failedTest;
 
         int whenStreak =0;
         for (int i =0;i<lines.length;i++)
@@ -42,7 +47,7 @@ public class StoryTesterImpl implements StoryTester
                  case "When":
                      if (whenStreak == 0) {
                          //backup
-                         //break;
+                         //break
                      }
                      whenStreak++;
                      //find when method
@@ -57,19 +62,21 @@ public class StoryTesterImpl implements StoryTester
                      }
                      catch(ComparisonFailure fail)
                      {
-                        if(exception == null)
+                        if(failsCounter == 0)
                         {
-                            exception = new StoryTestExceptionImpl();
-
+                            expected = fail.getExpected();
+                            got = fail.getActual();
+                            failedTest = lines[i];
                         }
+                        failsCounter++;
                      }
                      //find then method
-
                      break;
                  //default: //must be valid
              }
 
         }
+
 
     }
 
