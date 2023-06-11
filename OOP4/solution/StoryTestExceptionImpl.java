@@ -10,7 +10,7 @@ public class StoryTestExceptionImpl extends StoryTestException {
     private String testResult;
     private int numFail;
 
-    public StoryTestExceptionImpl(String sentence, String storyExpected, String testResult, int numFail) {
+    public StoryTestExceptionImpl(String storyExpected,String testResult ,String sentence, int numFail) {
         this.sentence = sentence;
         this.storyExpected = storyExpected;
         this.testResult = testResult;
