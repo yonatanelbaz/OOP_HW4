@@ -4,9 +4,14 @@ import junit.framework.ComparisonFailure;
 import provided.StoryTestException;
 import provided.StoryTester;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.function.Function;
 
 public class StoryTesterImpl implements StoryTester
 {
@@ -88,7 +93,32 @@ public class StoryTesterImpl implements StoryTester
             throw new IllegalArgumentException();
         }
     }
-    public Map<String, String> getFields(String string) {
+    protected static Object makeBackUp(Object test) throws Exception {
+        Object backUpTest = (test.getClass()).newInstance();
+        List<Field> fields = Arrays.stream(test.getClass().getFields()).toList();
+        for(Field field : fields)
+        {
+            Class<?> c = field.get(test).getClass();
+            if((field.get(test)) instanceof Cloneable)//check if cloneable
+            {
+                //access modifier here is surely true
+                Object o =c.getMethod("clone").invoke(field.get(test)); //calls clone
+                field.set(backUpTest,o);
+                continue;
+            }
+            Class[] classes = {c};
+            Constructor constructor = c.getConstructor(classes);//gets constructor with wanted type arguments
+            if(constructor != null)
+            {
+                field.set(backUpTest,constructor.newInstance(field.get(test)));
+                continue;
+            }
+            field.set(backUpTest,field.get(test));
+        }
+        return backUpTest;
+    }
+    protected Map<String, String> getFields(String string)
+    {
 
         String firstWords = string.substring(0, string.lastIndexOf(" "));
         String lastWord = string.substring(string.lastIndexOf(" ") + 2);//removes &.
