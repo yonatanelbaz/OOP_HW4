@@ -203,7 +203,8 @@ public class StoryTesterImpl implements StoryTester
             Method[] methods = testClass.getDeclaredMethods();
             for (Method m : methods)
             {
-                if(checkAnnotation(m,requiredAnno,statement)){
+                if(searchInheritance(requiredAnno,statement,testClass) != null)
+                {
                     List list = new ArrayList();
                     list.add(curr);
                     list.add(pre);
