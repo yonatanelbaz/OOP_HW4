@@ -145,9 +145,10 @@ public class StoryTesterImpl implements StoryTester
             backUpTest = ctor.newInstance(pre);
         }
 
-        List<Field> fields = Arrays.stream(test.getClass().getFields()).toList();
+        List<Field> fields = Arrays.stream(test.getClass().getDeclaredFields()).toList();
         for(Field field : fields)
         {
+            field.setAccessible(true);
             Class<?> c = field.get(test).getClass();
             if((field.get(test)) instanceof Cloneable)//check if cloneable
             {
@@ -157,13 +158,15 @@ public class StoryTesterImpl implements StoryTester
                 continue;
             }
             Class[] classes = {c};
-            Constructor constructor = c.getConstructor(classes);//gets constructor with wanted type arguments
-            if(constructor != null)
-            {
+            try {
+                Constructor constructor = c.getConstructor(classes);//gets constructor with wanted type arguments
                 field.set(backUpTest,constructor.newInstance(field.get(test)));
-                continue;
+            }catch (NoSuchMethodException e)
+            {
+                field.set(backUpTest,field.get(test)); //if no constructor with wanted type arguments - third case
             }
-            field.set(backUpTest,field.get(test));
+
+
         }
         return backUpTest;
     }
@@ -200,16 +203,16 @@ public class StoryTesterImpl implements StoryTester
                 curr = ctor.newInstance(pre);
             }
 
-            Method[] methods = testClass.getDeclaredMethods();
-            for (Method m : methods)
+            //Method[] methods = testClass.getDeclaredMethods();
+
+            if(searchInheritance(requiredAnno,statement,testClass) != null)
             {
-                if(checkAnnotation(m,requiredAnno,statement)){
-                    List list = new ArrayList();
-                    list.add(curr);
-                    list.add(pre);
-                    return list;
-                }
+                List list = new ArrayList();
+                list.add(curr);
+                list.add(pre);
+                return list;
             }
+
             Class[] classes = testClass.getDeclaredClasses();
             for (Class c : classes)
             {
