@@ -14,7 +14,7 @@ public class Dragon implements Cloneable {
         this.exhaustion = 5000;
     }
 
-    protected Object clone() throws CloneNotSupportedException {
+    public Object clone() throws CloneNotSupportedException {
         return super.clone();
     }
 

@@ -77,8 +77,8 @@ public class ClassroomTest {
             fail();
         } catch (StoryTestException e) {
             assertEquals("Then the classroom is not-full", e.getSentance());
-            assertEquals(singletonList("not-full"), e.getStoryExpected());
-            assertEquals(singletonList("full"), e.getTestResult());
+            assertEquals("not-full", e.getStoryExpected());
+            assertEquals("full", e.getTestResult());
             assertEquals(1, e.getNumFail());
         }
     }

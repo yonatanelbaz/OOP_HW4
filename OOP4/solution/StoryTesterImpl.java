@@ -150,7 +150,11 @@ public class StoryTesterImpl implements StoryTester
             if((field.get(test)) instanceof Cloneable)//check if cloneable
             {
                 //access modifier here is surely true
-                Object o =c.getMethod("clone").invoke(field.get(test)); //calls clone
+
+                Method m =c.getMethod("clone");
+                m.setAccessible(true);//just for making sure
+                Object o = m.invoke(field.get(test));
+                //calls clone
                 backupFields.put(field,o);
                 continue;
             }
