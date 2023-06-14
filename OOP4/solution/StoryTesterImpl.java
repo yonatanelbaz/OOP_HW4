@@ -10,8 +10,7 @@ import java.util.*;
 public class StoryTesterImpl implements StoryTester
 {
 
-
-    protected void test(String story, Class<?> testClass,Object curr,Object pre)throws Exception
+    protected void test(String story, Class<?> testClass,Object curr)throws Exception
     {
         if(story==null || testClass ==null)
         {
@@ -27,7 +26,7 @@ public class StoryTesterImpl implements StoryTester
         String got="";
         String failedTest="";
 
-        Object backUp =null;
+        Map<Field,Object> backUpFields =null; //back up of all fields values
         int whenStreak =0;
         for (int i =0; i < lines.length; i++) {
             int firstSpace = lines[i].indexOf(" ");
@@ -64,7 +63,7 @@ public class StoryTesterImpl implements StoryTester
                     break;
                 case "When":
                     if (whenStreak == 0) {
-                        backUp = makeBackUp(test,pre);
+                        backUpFields = makeBackUp(test);
                     }
                     whenStreak++;
                     //find when method
@@ -99,9 +98,14 @@ public class StoryTesterImpl implements StoryTester
                             failedTest = lines[i];
                         }
                         failsCounter++;
-                        test = backUp;
+                        //make backup
+                        for (Map.Entry<Field,Object> fieldEntry :backUpFields.entrySet())
+                        {
+                            Field field= fieldEntry.getKey();
+                            Object o = fieldEntry.getValue();
+                            field.set(curr,o);
+                        };
                     }
-
                     break;
             }
         }
@@ -115,7 +119,7 @@ public class StoryTesterImpl implements StoryTester
         if(story == null || testClass == null)
             throw new IllegalArgumentException();
 
-        test(story,testClass,testClass.newInstance(),null);
+        test(story,testClass,testClass.newInstance());
     }
 
 
@@ -126,24 +130,17 @@ public class StoryTesterImpl implements StoryTester
 
         String firstRow = story.split("\n")[0];
         String statement = firstRow.substring(firstRow.indexOf(" ") + 1, firstRow.lastIndexOf(" "));
-        List<Object> objectsToCreate = getClassByNestedClass(Given.class,statement,testClass,null);
-        if(objectsToCreate == null)
+        Object createdObject = getClassByNestedClass(Given.class,statement,testClass,null);
+        if(createdObject == null)
             throw new GivenNotFoundException();
 
 
         //find class to work on
-        test(story,objectsToCreate.get(0).getClass(), objectsToCreate.get(0),objectsToCreate.get(1));
+        test(story,createdObject.getClass(), createdObject);
     }
-    protected static Object makeBackUp(Object test,Object pre) throws Exception
+    protected static Map<Field,Object> makeBackUp(Object test) throws Exception
     {
-        Object backUpTest;
-        if(pre == null)
-             backUpTest = (test.getClass()).newInstance();
-        else//if non-static nested
-        {
-            Constructor<?> ctor = (test.getClass()).getDeclaredConstructor(pre.getClass());
-            backUpTest = ctor.newInstance(pre);
-        }
+        Map<Field,Object> backupFields = new HashMap<>();
 
         List<Field> fields = Arrays.stream(test.getClass().getDeclaredFields()).toList();
         for(Field field : fields)
@@ -154,21 +151,22 @@ public class StoryTesterImpl implements StoryTester
             {
                 //access modifier here is surely true
                 Object o =c.getMethod("clone").invoke(field.get(test)); //calls clone
-                field.set(backUpTest,o);
+                backupFields.put(field,o);
                 continue;
             }
             Class[] classes = {c};
             try {
                 Constructor constructor = c.getConstructor(classes);//gets constructor with wanted type arguments
-                field.set(backUpTest,constructor.newInstance(field.get(test)));
+                Object o = constructor.newInstance(field.get(test));
+                backupFields.put(field,o);
+
             }catch (NoSuchMethodException e)
             {
-                field.set(backUpTest,field.get(test)); //if no constructor with wanted type arguments - third case
+                backupFields.put(field,field.get(test));
             }
 
-
         }
-        return backUpTest;
+        return backupFields;
     }
     protected Map<String, String> parseStory(String string)
     {
@@ -192,7 +190,7 @@ public class StoryTesterImpl implements StoryTester
         return searchInheritance(requiredAnno,statement, testClass.getSuperclass());
     }
 
-    protected static List<Object> getClassByNestedClass(Class<? extends Annotation> requiredAnno, String statement, Class<?> testClass,Object pre) throws Exception {
+    protected static Object getClassByNestedClass(Class<? extends Annotation> requiredAnno, String statement, Class<?> testClass,Object pre) throws Exception {
         {
             Object curr;
             if(pre ==null)
@@ -207,22 +205,19 @@ public class StoryTesterImpl implements StoryTester
 
             if(searchInheritance(requiredAnno,statement,testClass) != null)
             {
-                List list = new ArrayList();
-                list.add(curr);
-                list.add(pre);
-                return list;
+                return curr;
             }
 
             Class[] classes = testClass.getDeclaredClasses();
             for (Class c : classes)
             {
-                List l;
+                Object o;
                 if(Modifier.isStatic(c.getModifiers()))//checks if static nested
-                     l = getClassByNestedClass(requiredAnno, statement, c,null);
+                     o= getClassByNestedClass(requiredAnno, statement, c,null);
                 else
-                    l = getClassByNestedClass(requiredAnno,statement,c,curr);
-                if(l != null)
-                    return l;
+                    o = getClassByNestedClass(requiredAnno,statement,c,curr);
+                if(o != null)
+                    return o;
             }
             return null;
         }
