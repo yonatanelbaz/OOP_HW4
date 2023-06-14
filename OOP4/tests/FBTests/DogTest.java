@@ -68,8 +68,8 @@ public class DogTest {
 		} catch (StoryTestException e) {
 			Assert.assertTrue(true);
 			Assert.assertEquals("Then the house condition is smelly", e.getSentance());
-			Assert.assertEquals(Arrays.asList("smelly"), e.getStoryExpected());
-			Assert.assertEquals(Arrays.asList("clean"), e.getTestResult());
+			Assert.assertEquals("smelly" ,e.getStoryExpected());
+			Assert.assertEquals("clean", e.getTestResult());
 		}
 	}
 

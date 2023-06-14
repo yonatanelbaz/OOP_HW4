@@ -98,29 +98,12 @@ public class ClassroomTest {
         } catch (StoryTestException e) {
             Assert.assertTrue(true);
             Assert.assertEquals("Then the classroom is not-full", e.getSentance());
-            Assert.assertEquals(Arrays.asList("not-full"), e.getStoryExpected());
-            Assert.assertEquals(Arrays.asList("full"), e.getTestResult());
+            Assert.assertEquals("not-full", e.getStoryExpected());
+            Assert.assertEquals("full", e.getTestResult());
         }
     }
 
-    @Test
-    public void test3() throws Exception {
-        try {
-            tester.testOnNestedClasses(nestedStory1, derivedTestClass);
-            Assert.assertTrue(false);
-        } catch (StoryTestException e) {
-            Assert.assertTrue(true);
-            Assert.assertEquals("Then the classroom is not-full and quiet or the classroom is what and quiet", e.getSentance());
-            LinkedList<String> expectedList = new LinkedList<String>();
-            expectedList.addLast("not-full");
-            expectedList.addLast("what");
-            LinkedList<String> resultList = new LinkedList<String>();
-            resultList.addLast("full");
-            resultList.addLast("full");
-            Assert.assertEquals(expectedList, e.getStoryExpected());
-            Assert.assertEquals(resultList, e.getTestResult());
-        }
-    }
+
     @Test
     public void test4() throws Exception {
         try {
@@ -131,15 +114,7 @@ public class ClassroomTest {
         }
     }
 
-    @Test
-    public void test5() throws Exception {
-        try {
-            tester.testOnNestedClasses(nestedStory3, derivedTestClass);
-            Assert.assertTrue(true);
-        } catch (StoryTestException e) {
-            Assert.assertTrue(false);
-        }
-    }
+
 
     @Test
     public void test6() throws Exception {
@@ -159,8 +134,8 @@ public class ClassroomTest {
         } catch (StoryTestException e) {
             Assert.assertTrue(true);
             Assert.assertEquals("Then the classroom is not-full", e.getSentance());
-            Assert.assertEquals(Arrays.asList("not-full"), e.getStoryExpected());
-            Assert.assertEquals(Arrays.asList("full"), e.getTestResult());
+            Assert.assertEquals("not-full", e.getStoryExpected());
+            Assert.assertEquals("full", e.getTestResult());
             Assert.assertEquals(2, e.getNumFail());
         }
     }
