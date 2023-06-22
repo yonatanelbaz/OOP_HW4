@@ -10,9 +10,9 @@ import java.util.*;
 public class StoryTesterImpl implements StoryTester
 {
 
-    protected void test(String story, Class<?> testClass,Object curr)throws Exception
+    protected void test(String story, Class<?> testClass,Object curr)throws Exception //curr is the object to test
     {
-        if(story==null || testClass ==null)
+        if(story==null || testClass ==null) //check if arguments are valid
         {
             throw new IllegalArgumentException();
         }
@@ -20,11 +20,12 @@ public class StoryTesterImpl implements StoryTester
         String[] lines = story.split("\n");
         Object test=curr;
 
-        //exception realted
+        //exception related
         int failsCounter = 0;
         String expected="";
         String got="";
         String failedTest="";
+        boolean isFailed = false;
 
         Map<Field,Object> backUpFields =null; //back up of all fields values
         int whenStreak =0;
@@ -44,8 +45,9 @@ public class StoryTesterImpl implements StoryTester
             }
 
             Method m;
-            switch (keyword) {
+            switch (keyword) { //check which annotation it is and then find and run the function corresponding to that annotation
                 case "Given":
+                    isFailed = false;
                     whenStreak = 0;
                     m = searchInheritance(Given.class, statement, testClass);
                     if (m == null)
@@ -62,6 +64,16 @@ public class StoryTesterImpl implements StoryTester
                     }
                     break;
                 case "When":
+                    if(isFailed)
+                    {
+                        //make backup
+                        for (Map.Entry<Field, Object> fieldEntry : backUpFields.entrySet()) {
+                            Field field = fieldEntry.getKey();
+                            Object o = fieldEntry.getValue();
+                            field.set(curr, o);
+                        }
+                    }
+                    isFailed = false;
                     if (whenStreak == 0) {
                         backUpFields = makeBackUp(test);
                     }
@@ -89,8 +101,9 @@ public class StoryTesterImpl implements StoryTester
                         } else {
                             m.invoke(test, argument);
                         }
-                    } catch (InvocationTargetException asser) {
-                        ComparisonFailure fail = (ComparisonFailure) asser.getCause();
+                    } catch (InvocationTargetException asser)
+                    {
+                        ComparisonFailure fail = (ComparisonFailure)asser.getCause();
                         if (failsCounter == 0) // if first to fail
                         {
                             expected = fail.getExpected();
@@ -98,13 +111,7 @@ public class StoryTesterImpl implements StoryTester
                             failedTest = lines[i];
                         }
                         failsCounter++;
-                        //make backup
-                        for (Map.Entry<Field,Object> fieldEntry :backUpFields.entrySet())
-                        {
-                            Field field= fieldEntry.getKey();
-                            Object o = fieldEntry.getValue();
-                            field.set(curr,o);
-                        };
+                        isFailed = true;
                     }
                     break;
             }
@@ -113,6 +120,7 @@ public class StoryTesterImpl implements StoryTester
             throw new StoryTestExceptionImpl(expected,got,failedTest,failsCounter);
 
     }
+    //run a specific test on a specific method from the inheritance tree
     @Override
     public void testOnInheritanceTree(String story, Class<?> testClass) throws Exception
     {
@@ -122,7 +130,7 @@ public class StoryTesterImpl implements StoryTester
         test(story,testClass,testClass.newInstance());
     }
 
-
+    //run a test on a method found within a nested class
     @Override
     public void testOnNestedClasses(String story, Class<?> testClass) throws Exception {
         if (story == null || testClass == null)
@@ -138,6 +146,7 @@ public class StoryTesterImpl implements StoryTester
         //find class to work on
         test(story,createdObject.getClass(), createdObject);
     }
+    //when an error is caught on a specific method, save the object which the error was produced on.
     protected static Map<Field,Object> makeBackUp(Object test) throws Exception
     {
         Map<Field,Object> backupFields = new HashMap<>();
@@ -181,6 +190,7 @@ public class StoryTesterImpl implements StoryTester
         return hm;
     }
 
+    //find a specific method in the inheritance tree of a class
     protected static Method searchInheritance(Class<? extends Annotation> requiredAnno , String statement, Class<?> testClass) throws Exception {
         Method[] methods = testClass.getDeclaredMethods();
         for (Method m : methods) {
@@ -193,7 +203,7 @@ public class StoryTesterImpl implements StoryTester
         }
         return searchInheritance(requiredAnno,statement, testClass.getSuperclass());
     }
-
+    //find the method in the nested class's of a class,  in those nested classes search their inheritance tree and so on
     protected static Object getClassByNestedClass(Class<? extends Annotation> requiredAnno, String statement, Class<?> testClass,Object pre) throws Exception {
         {
             Object curr;
@@ -205,7 +215,6 @@ public class StoryTesterImpl implements StoryTester
                 curr = ctor.newInstance(pre);
             }
 
-            //Method[] methods = testClass.getDeclaredMethods();
 
             if(searchInheritance(requiredAnno,statement,testClass) != null)
             {
@@ -226,6 +235,7 @@ public class StoryTesterImpl implements StoryTester
             return null;
         }
     }
+    //checks if method has annotation with statement that matches the given statement
     protected static boolean checkAnnotation(Method m, Class<? extends Annotation> requiredAnno,String statement) throws Exception {
         Annotation methodAnno = m.getAnnotation(requiredAnno);
         if (methodAnno != null) {
