@@ -38,7 +38,8 @@ public class StoryTesterImpl implements StoryTester
             String argument = lines[i].substring(lastSpace + 1);
             boolean isNumeric = true;
 
-            try {
+            try
+            {
                 Integer.parseInt(argument);
             } catch (Exception e) {
                 isNumeric = false;
@@ -49,12 +50,14 @@ public class StoryTesterImpl implements StoryTester
                 case "Given":
                     isFailed = false;
                     whenStreak = 0;
-                    m = searchInheritance(Given.class, statement, testClass);
+                    m = searchInheritance(Given.class, statement, testClass,isNumeric);
                     if (m == null)
                         throw new GivenNotFoundException();
                     m.setAccessible(true);
                     //find given method and apply
-                    if (isNumeric)
+
+
+                    if (isNumeric && m.getParameterTypes()[0]!= String.class)
                     {
                         m.invoke(test, Integer.parseInt(argument));
                     }
@@ -79,11 +82,12 @@ public class StoryTesterImpl implements StoryTester
                     }
                     whenStreak++;
                     //find when method
-                    m = searchInheritance(When.class, statement, testClass);
+                    m = searchInheritance(When.class, statement, testClass,isNumeric);
                     if (m == null)
                         throw new WhenNotFoundException();
                     m.setAccessible(true);
-                    if (isNumeric) {
+                    if (isNumeric && m.getParameterTypes()[0]!= String.class)
+                    {
                         m.invoke(test, Integer.parseInt(argument));
                     } else {
                         m.invoke(test, argument);
@@ -91,14 +95,16 @@ public class StoryTesterImpl implements StoryTester
                     break;
                 case "Then":
                     whenStreak = 0;
-                    m = searchInheritance(Then.class, statement, testClass);
+                    m = searchInheritance(Then.class, statement, testClass,isNumeric);
                     if (m == null)
                         throw new ThenNotFoundException();
                     m.setAccessible(true);
                     try {
-                        if (isNumeric) {
+                        if (isNumeric && m.getParameterTypes()[0]!= String.class)
+                        {
                             m.invoke(test, Integer.parseInt(argument));
-                        } else {
+                        }
+                        else {
                             m.invoke(test, argument);
                         }
                     } catch (InvocationTargetException asser)
@@ -126,8 +132,9 @@ public class StoryTesterImpl implements StoryTester
     {
         if(story == null || testClass == null)
             throw new IllegalArgumentException();
-
-        test(story,testClass,testClass.newInstance());
+        Constructor constructor= testClass.getDeclaredConstructor();
+        constructor.setAccessible(true);
+        test(story,testClass,constructor.newInstance());
     }
 
     //run a test on a method found within a nested class
@@ -138,10 +145,19 @@ public class StoryTesterImpl implements StoryTester
 
         String firstRow = story.split("\n")[0];
         String statement = firstRow.substring(firstRow.indexOf(" ") + 1, firstRow.lastIndexOf(" "));
-        Object createdObject = getClassByNestedClass(Given.class,statement,testClass,null);
+        String argument = firstRow.substring(firstRow.lastIndexOf(" ") + 1);
+        boolean isNumeric = true;
+
+        try
+        {
+            Integer.parseInt(argument);
+        } catch (Exception e) {
+            isNumeric = false;
+        }
+
+        Object createdObject = getClassByNestedClass(Given.class,statement,testClass,null,isNumeric);
         if(createdObject == null)
             throw new GivenNotFoundException();
-
 
         //find class to work on
         test(story,createdObject.getClass(), createdObject);
@@ -170,6 +186,7 @@ public class StoryTesterImpl implements StoryTester
             Class[] classes = {c};
             try {
                 Constructor constructor = c.getConstructor(classes);//gets constructor with wanted type arguments
+                constructor.setAccessible(true);
                 Object o = constructor.newInstance(field.get(test));
                 backupFields.put(field,o);
 
@@ -191,32 +208,38 @@ public class StoryTesterImpl implements StoryTester
     }
 
     //find a specific method in the inheritance tree of a class
-    protected static Method searchInheritance(Class<? extends Annotation> requiredAnno , String statement, Class<?> testClass) throws Exception {
+    protected static Method searchInheritance(Class<? extends Annotation> requiredAnno , String statement, Class<?> testClass,boolean isNumerical) throws Exception {
         Method[] methods = testClass.getDeclaredMethods();
         for (Method m : methods) {
             //check for annotation
-           if(checkAnnotation(m,requiredAnno,statement))
+            if(!isNumerical && m.getParameterTypes()[0] != String.class)// check if type is compatible with argument
+                continue;
+            if(checkAnnotation(m,requiredAnno,statement))
                return m;
         }
         if(testClass.getSuperclass() == null) {
             return null;
         }
-        return searchInheritance(requiredAnno,statement, testClass.getSuperclass());
+        return searchInheritance(requiredAnno,statement, testClass.getSuperclass(),isNumerical);
     }
     //find the method in the nested class's of a class,  in those nested classes search their inheritance tree and so on
-    protected static Object getClassByNestedClass(Class<? extends Annotation> requiredAnno, String statement, Class<?> testClass,Object pre) throws Exception {
+    protected static Object getClassByNestedClass(Class<? extends Annotation> requiredAnno, String statement, Class<?> testClass,Object pre,boolean isNumerical) throws Exception {
         {
             Object curr;
-            if(pre ==null)
-                curr = testClass.newInstance();
+            if(pre ==null) {
+                Constructor constructor = testClass.getDeclaredConstructor();
+                constructor.setAccessible(true);
+                curr = constructor.newInstance();
+            }
             else
             {
                 Constructor<?> ctor = testClass.getConstructor(pre.getClass());
+                ctor.setAccessible(true);
                 curr = ctor.newInstance(pre);
             }
 
 
-            if(searchInheritance(requiredAnno,statement,testClass) != null)
+            if(searchInheritance(requiredAnno,statement,testClass,isNumerical) != null)
             {
                 return curr;
             }
@@ -226,9 +249,9 @@ public class StoryTesterImpl implements StoryTester
             {
                 Object o;
                 if(Modifier.isStatic(c.getModifiers()))//checks if static nested
-                     o= getClassByNestedClass(requiredAnno, statement, c,null);
+                     o= getClassByNestedClass(requiredAnno, statement, c,null,isNumerical);
                 else
-                    o = getClassByNestedClass(requiredAnno,statement,c,curr);
+                    o = getClassByNestedClass(requiredAnno,statement,c,curr,isNumerical);
                 if(o != null)
                     return o;
             }

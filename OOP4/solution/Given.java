@@ -6,6 +6,7 @@ import java.lang.annotation.Target;
 
 import static java.lang.annotation.ElementType.METHOD;
 
+// This annotation is used to mark a method as a "given" method.
 @Retention(RetentionPolicy.RUNTIME)
 @Target({METHOD})
 public @interface Given {

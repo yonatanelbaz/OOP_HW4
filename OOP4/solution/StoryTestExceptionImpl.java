@@ -2,7 +2,8 @@ package solution;
 
 import provided.StoryTestException;
 
-public class StoryTestExceptionImpl extends StoryTestException {
+
+public class    StoryTestExceptionImpl extends StoryTestException {
 
     private static final long serialVersionUID = 1L;
     private String sentence;
@@ -10,6 +11,7 @@ public class StoryTestExceptionImpl extends StoryTestException {
     private String testResult;
     private int numFail;
 
+    //initialize the exception with the relevant data
     public StoryTestExceptionImpl(String storyExpected,String testResult ,String sentence, int numFail) {
         this.sentence = sentence;
         this.storyExpected = storyExpected;
@@ -17,6 +19,7 @@ public class StoryTestExceptionImpl extends StoryTestException {
         this.numFail = numFail;
     }
 
+    //getters
     @Override
     public String getSentance() {
         return sentence;
